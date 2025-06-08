@@ -1,19 +1,34 @@
+// TOOD: Zoom Feature
+
 #include <iostream>
 #include <SFML/Graphics.hpp>
+#include "map.h"
 
 int main()
 {
     sf::RenderWindow window(sf::VideoMode({800,800}), "My window");
+    sf::View camera;
 
-    sf::VertexArray tri(sf::PrimitiveType::Triangles, 3);
+    camera.setCenter({400,400});
+    camera.setSize({800,800});
 
-    tri[0].position = sf::Vector2f(10.f, 10.f);
-    tri[1].position = sf::Vector2f(10.f, 200.f);
-    tri[2].position = sf::Vector2f(200.f, 200.f);
+    Map map;
+    sf::RectangleShape indicator({50.f, 50.f});
+    indicator.setPosition({750, 750});
+    indicator.setFillColor(sf::Color::Red);
 
-    tri[0].color = sf::Color::Red;
-    tri[1].color = sf::Color::Blue;
-    tri[2].color = sf::Color::Green;
+    if (map.load(10, 10, 30))
+    {   
+        std::cout << "Loaded!\n";
+    }else {
+        std::cerr << "Failed to load map!";
+        return -1; 
+    }
+
+    bool subscribed;
+    sf::Vector2i initialMousePos;
+    sf::Vector2f initialWorldPos;
+   
 
     while (window.isOpen())
     {
@@ -23,10 +38,37 @@ int main()
             {
                 window.close();
             }
+
+            if (event->is<sf::Event::MouseMoved>() && subscribed) 
+            {
+                auto mousePos = sf::Mouse::getPosition(window);
+
+                float xDiff = mousePos.x - initialMousePos.x;
+                float yDiff = mousePos.y - initialMousePos.y;
+
+                camera.setCenter({initialWorldPos.x-xDiff, initialWorldPos.y - yDiff});
+            }
+
+            if (event->is<sf::Event::MouseButtonPressed>())
+            {
+                subscribed = true;
+                initialMousePos = sf::Mouse::getPosition(window);
+                initialWorldPos = camera.getCenter();
+            }
+
+            if (event->is<sf::Event::MouseButtonReleased>())
+            {
+                subscribed = false;
+            }
         }
 
         window.clear();
-        window.draw(tri);
+
+        window.draw(indicator);
+
+        window.setView(camera);
+        window.draw(map);
+        
         window.display();
     }
 
