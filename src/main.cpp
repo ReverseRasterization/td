@@ -5,6 +5,8 @@
 #include "map.h"
 #include <random>
 
+// test
+
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
 
 int main()
