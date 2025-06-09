@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch TD",
+      "name": "Launch TDME",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/bin/main",  // Path to your executable

@@ -7,11 +7,9 @@ class Map : public sf::Drawable, public sf::Transformable
         bool load(int* tiles, unsigned int width, unsigned int height, unsigned int tile_size);
         bool changeTileTexture(int tileID, int nTexture);
 
-        bool isTilesetLoaded(){return tilesetLoaded;}
-
         int getTileFromPosition(sf::Vector2f position);
 
-        Map(const std::filesystem::path& tileset);
+        Map(sf::Texture& tileset):m_tileset(tileset){};
 
     private:
         void draw(sf::RenderTarget& target, sf::RenderStates states) const override
@@ -24,7 +22,6 @@ class Map : public sf::Drawable, public sf::Transformable
 
         sf::VertexArray m_verticies;
         sf::Texture m_tileset;
-        bool tilesetLoaded {false};
 
         int* m_tiles;
 

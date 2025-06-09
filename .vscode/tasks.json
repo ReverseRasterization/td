@@ -2,7 +2,7 @@
     "tasks": [
         
         {
-        "label": "Build and Run",
+        "label": "Build and Run TDME",
         "type": "shell",
         "command": "cmake --build build && ./build/bin/main",
         "options": {

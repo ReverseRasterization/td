@@ -2,16 +2,6 @@
 #include <iostream>
 #include <cmath>
 
-Map::Map(const std::filesystem::path& tileset)
-{
-    if(!m_tileset.loadFromFile(tileset))
-    {
-        std::cerr << "Failed to load tileset!\n";
-    }else {
-        tilesetLoaded = true;
-    }
-}
-
 bool Map::load(int* tiles, unsigned int width, unsigned int height, unsigned int tile_size)
 {
     // Register variables
@@ -32,7 +22,7 @@ bool Map::load(int* tiles, unsigned int width, unsigned int height, unsigned int
             sf::Vertex* triangles = &m_verticies[(i+j * width) * 6];
 
             // Get the texture
-            const int tileNum = tiles[i + j * width]; // segmentation fault here
+            const int tileNum = tiles[i + j * width];
 
             float row = std::floor(tileNum/18); // 18 columns
             float column = std::floor(tileNum%18);

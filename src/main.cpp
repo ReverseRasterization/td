@@ -5,9 +5,28 @@
 #include "map.h"
 #include <random>
 
-// test
-
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
+
+void updateSelectionPreview(int nTex, sf::Texture& tilemap, sf::VertexArray& va)
+{
+    std::cout << "Called!";
+
+    int row = std::floor(nTex/18); // 18 columns
+    int column = std::floor(nTex%18);
+
+    sf::Vector2f textureTL {column * 17.f, row * 17.f}; // you have 17 bc its tile size + spacing (16 + 1)
+    sf::Vector2f textureBL {textureTL.x, textureTL.y + 16};
+    sf::Vector2f textureTR {textureTL.x + 16, textureTL.y};
+    sf::Vector2f textureBR {textureTL.x + 16, textureTL.y + 16};
+
+    va[0].texCoords = textureTL;
+    va[1].texCoords = textureBL;
+    va[2].texCoords = textureBR;
+
+    va[3].texCoords = textureTL;
+    va[4].texCoords = textureBR;
+    va[5].texCoords = textureTR;
+}
 
 int main()
 {   
@@ -21,8 +40,22 @@ int main()
     camera.setCenter({400,400});
     camera.setSize({800,800});
 
+    sf::View uiView;
+    uiView.setCenter({400,400});
+    uiView.setSize({800, 800});
+
+    
+    
+
     // Map Setup
-    Map map("assets/tilemap.png");
+    sf::Texture tileset;
+    if(!tileset.loadFromFile("assets/tilemap.png"))
+    {
+        std::cerr << "Failed to load tileset!\n";
+        return -1;
+    }
+
+    Map map(tileset);
     std::array<int, 2500> level;
     for (int& tile : level) {
         tile = 2;
@@ -35,6 +68,23 @@ int main()
         return -1; 
     }
 
+    // UI Elements
+    sf::RectangleShape box({100.f, 100.f});
+    box.setPosition({700.f, 0.f});
+
+    sf::VertexArray preview(sf::PrimitiveType::Triangles, 6);
+
+    preview[0].position = {725.f, 25.f};
+    preview[1].position = {725.f, 75.f};
+    preview[2].position = {775.f, 75.f};
+
+    preview[3].position = {725.f, 25.f};
+    preview[4].position = {775.f, 75.f};
+    preview[5].position = {775.f, 25.f};
+
+    updateSelectionPreview(0, tileset, preview);
+
+
     // Variables for camera movement
     bool subscribed = false;
     sf::Vector2i initialMousePos;
@@ -46,6 +96,9 @@ int main()
     sf::Vector2f maxSize = baseSize*2.f; // how much the user can zoom out
     float zoomStep = 0.15f;
     float zoomFactor = 1.f;
+
+    // Variables for block selection
+    int currTexture {0};
    
     while (window.isOpen())
     {
@@ -96,11 +149,32 @@ int main()
                     zoomFactor = cameraSize.x / baseSize.x;
                 }
             }
+        
+            // Block Selection
+            if (event->is<sf::Event::KeyPressed>())
+            {
+                if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space))
+                {
+                    if (currTexture == 198)
+                    {
+                        currTexture = 0;
+                    }else {
+                        currTexture++;
+                    }
+                }
+
+                updateSelectionPreview(currTexture, tileset, preview);
+            }
         }
 
         window.clear();
+
         window.setView(camera);
         window.draw(map);
+
+        window.setView(uiView);
+        window.draw(box);
+        window.draw(preview, &tileset);
 
         window.display();
     }
