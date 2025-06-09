@@ -3,8 +3,16 @@
 #include <cmath>
 #include <SFML/Graphics.hpp>
 #include "map.h"
+#include <random>
 
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
+
+int getRandom(int min, int max) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(min, max);
+    return dist(gen);
+}
 
 int main()
 {
@@ -14,8 +22,16 @@ int main()
     camera.setCenter({400,400});
     camera.setSize({800,800});
 
-    Map map;
-    if (map.load(10, 10, 30))
+    Map map("assets/tilemap.png");
+
+    std::array<int, 2500> level;
+
+
+    for (int& tile : level) {
+        tile = 2;
+    }
+
+    if (map.load(level.data(), 50, 50, 16))
     {   
         std::cout << "Loaded!\n";
     }else {
@@ -24,13 +40,13 @@ int main()
     }
 
     // Variables for camera movement
-    bool subscribed;
+    bool subscribed = false;
     sf::Vector2i initialMousePos;
     sf::Vector2f initialWorldPos;
 
     // Variables for zoom
     sf::Vector2f baseSize = camera.getSize();
-    sf::Vector2f minSize = baseSize/2.f; // how much the user can zoom in
+    sf::Vector2f minSize = baseSize/3.f; // how much the user can zoom in
     sf::Vector2f maxSize = baseSize*2.f; // how much the user can zoom out
     float zoomStep = 0.15f;
     float zoomFactor = 1.f;
@@ -45,16 +61,29 @@ int main()
             }
 
             // Camera Movement
-            if (event->is<sf::Event::MouseMoved>() && subscribed) 
+            if (event->is<sf::Event::MouseMoved>()) 
             {
                 auto mousePos = sf::Mouse::getPosition(window);
 
-                float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
-                float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
+                if (subscribed)
+                {
+                    float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
+                    float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
 
-                sf::Vector2f delta = {xDiff, yDiff};
+                    sf::Vector2f delta = {xDiff, yDiff};
 
-                camera.setCenter(initialWorldPos - delta);
+                    camera.setCenter(initialWorldPos - delta);
+                }else {
+                    sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
+
+                    if (mouseWorld.x >= 0 && mouseWorld.y >= 0)
+                    {
+                        map.changeTileTexture(map.getTileFromPosition(mouseWorld), getRandom(1, 198));
+                    }
+
+                    
+                }
+                
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
