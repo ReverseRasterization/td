@@ -7,30 +7,24 @@
 
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
 
-int getRandom(int min, int max) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dist(min, max);
-    return dist(gen);
-}
-
 int main()
-{
+{   
+    // Window
+    sf::Vector2u userDesktopSize = sf::VideoMode::getDesktopMode().size;
     sf::RenderWindow window(sf::VideoMode({800,800}), "My window", sf::Style::Titlebar | sf::Style::Close);
-    sf::View camera;
+    window.setPosition({static_cast<int>((userDesktopSize.x/2)-400), static_cast<int>((userDesktopSize.y/2)-400)});
 
+    // Camera / Views
+    sf::View camera;
     camera.setCenter({400,400});
     camera.setSize({800,800});
 
+    // Map Setup
     Map map("assets/tilemap.png");
-
     std::array<int, 2500> level;
-
-
     for (int& tile : level) {
         tile = 2;
     }
-
     if (map.load(level.data(), 50, 50, 16))
     {   
         std::cout << "Loaded!\n";
@@ -61,29 +55,15 @@ int main()
             }
 
             // Camera Movement
-            if (event->is<sf::Event::MouseMoved>()) 
+            if (event->is<sf::Event::MouseMoved>() && subscribed) 
             {
                 auto mousePos = sf::Mouse::getPosition(window);
+                float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
+                float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
 
-                if (subscribed)
-                {
-                    float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
-                    float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
+                sf::Vector2f delta = {xDiff, yDiff};
 
-                    sf::Vector2f delta = {xDiff, yDiff};
-
-                    camera.setCenter(initialWorldPos - delta);
-                }else {
-                    sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
-
-                    if (mouseWorld.x >= 0 && mouseWorld.y >= 0)
-                    {
-                        map.changeTileTexture(map.getTileFromPosition(mouseWorld), getRandom(1, 198));
-                    }
-
-                    
-                }
-                
+                camera.setCenter(initialWorldPos - delta);
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
@@ -119,6 +99,7 @@ int main()
         window.clear();
         window.setView(camera);
         window.draw(map);
+
         window.display();
     }
 
