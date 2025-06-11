@@ -1,9 +1,19 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <random>
+#include <vector>
+
 #include <SFML/Graphics.hpp>
 #include "map.h"
-#include <random>
+
+struct TextureGroup
+{
+    std::string s_name;
+    std::vector<int> s_textureIDs;
+
+    TextureGroup(std::string name, std::vector<int> textureIDs): s_name(name), s_textureIDs(textureIDs){};
+};
 
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
 
@@ -89,9 +99,19 @@ int main()
     highlighting[4].texCoords = {135.f, 67.f}; // Bottom-Right
     highlighting[5].texCoords = {135.f, 51.f}; // Top-Right
 
-    sf::CircleShape dot(2.f);
-    dot.setFillColor(sf::Color::Red);
-    dot.setOrigin({1.f, 1.f});
+    sf::Font font;
+    if (!font.openFromFile("assets/font.ttf"))
+    {
+        std::cerr << "Failed to load font!\n";
+        return -1;
+    }
+
+    sf::Text texGroupText(font);
+    texGroupText.setString("Current Texture Group: Grasses");
+    texGroupText.setCharacterSize(24);
+    texGroupText.setPosition({10.f, 10.f});
+    texGroupText.setFillColor(sf::Color::Red);
+    texGroupText.setStyle(sf::Text::Bold);
 
     // Variables for camera movement
     bool subscribed = false;
@@ -105,9 +125,18 @@ int main()
     float zoomStep = 0.15f;
     float zoomFactor = 1.f;
 
-    // Variables for block selection
-    int currTexture {0};
-   
+    // Variables for building
+    int currGroup{0};
+    int currTextureIndex{0};
+    std::vector<TextureGroup> textureGroups {
+        TextureGroup("Grass", {0,1,2}),
+        TextureGroup("Horizontal Roads", {109, 110, 111}),
+        TextureGroup("Vertical Roads", {126, 144, 162}),
+        TextureGroup("Curved Roads", {127, 129, 163, 165}),
+    };
+
+    std::vector<std::vector<int>> history; // each item: {tileID, textureID}
+
     while (window.isOpen())
     {
         while (const std::optional event = window.pollEvent())
@@ -130,36 +159,56 @@ int main()
                     sf::Vector2f delta = {xDiff, yDiff};
 
                     camera.setCenter(initialWorldPos - delta);
-                }else {
-                    sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
-
-                    dot.setPosition(mouseWorld);
-
-                    float x = 16.f * (std::floor(mouseWorld.x/16));
-                    float y = 16.f * (std::floor(mouseWorld.y/16));
-                    float tileSize = 16.f;
-
-                    highlighting[0].position = {x, y}; // Top-Left
-                    highlighting[1].position = {x, y+tileSize}; // Bottom-Left
-                    highlighting[2].position = {x+tileSize, y+tileSize}; // Bottom Right
-
-                    highlighting[3].position = {x, y}; // Top Left
-                    highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
-                    highlighting[5].position = {x+tileSize, y}; // Top Right
                 }
+
+                sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
+
+                float x = 16.f * (std::floor(mouseWorld.x/16));
+                float y = 16.f * (std::floor(mouseWorld.y/16));
+                float tileSize = 16.f;
+
+                highlighting[0].position = {x, y}; // Top-Left
+                highlighting[1].position = {x, y+tileSize}; // Bottom-Left
+                highlighting[2].position = {x+tileSize, y+tileSize}; // Bottom Right
+
+                highlighting[3].position = {x, y}; // Top Left
+                highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
+                highlighting[5].position = {x+tileSize, y}; // Top Right
+                
                 
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
             {
-                subscribed = true;
-                initialMousePos = sf::Mouse::getPosition(window);
-                initialWorldPos = camera.getCenter();
+                if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
+                {
+                    subscribed = true;
+                    initialMousePos = sf::Mouse::getPosition(window);
+                    initialWorldPos = camera.getCenter();
+                }else if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { // user wanna build
+                    sf::Vector2f mouseWorld = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+
+                    int tile = map.getTileFromPosition(mouseWorld);
+                    int currTex = textureGroups[currGroup].s_textureIDs[currTextureIndex];
+
+                    if (map.getTileTexture(tile) != currTex) {
+                        history.push_back({tile, map.getTileTexture(tile)});
+
+                        map.changeTileTexture(tile, currTex);
+                    }
+
+                    
+                }
+                
             }
 
             if (event->is<sf::Event::MouseButtonReleased>())
             {
-                subscribed = false;
+                if (!sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
+                {
+                    subscribed = false;
+                }
+                
             }
 
             // Zoom
@@ -179,28 +228,70 @@ int main()
                 }
             }
         
-            // Block Selection
+            // Block Selection & Build Mode Toggling
             if (event->is<sf::Event::KeyPressed>())
             {
-                if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space))
+            
+                if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::G)) // Change Texture Groups
                 {
-                    int x;
-                    
-                    std::cout << "Enter the tile: ";
-                    std::cin >> x;
-
-                    if (x > 198)
+                    int factor;
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LAlt))
                     {
-                        std::cout << "Invalid.\n";
+                        factor = -1;
                     }else {
-                        currTexture = x;
-                        updateSelectionPreview(x, tileset, preview);
+                        factor = 1;
                     }
 
-                    
+                    currGroup += factor;
+
+                    if (currGroup == textureGroups.size())
+                    {
+                        currGroup = 0;
+                    }else if (currGroup == -1){
+                        currGroup = textureGroups.size()-1;
+                    }
+
+                    currTextureIndex = 0;
+
+                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview);  
+                    texGroupText.setString("Current Texture Group: " + textureGroups[currGroup].s_name);  
                 }
 
-                updateSelectionPreview(currTexture, tileset, preview);
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) // Go backward in texture group
+                {
+                    int texSelectionSize = textureGroups[currGroup].s_textureIDs.size();
+
+                    if (currTextureIndex == 0)
+                    {
+                        currTextureIndex = texSelectionSize-1;
+                    }else {
+                        currTextureIndex--;
+                    }
+
+                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview); 
+                }
+
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) // Go forward in texture group
+                {
+                    int texSelectionSize = textureGroups[currGroup].s_textureIDs.size();
+
+                    if (currTextureIndex == texSelectionSize-1)
+                    {
+                        currTextureIndex = 0;
+                    }else {
+                        currTextureIndex++;
+                    }
+
+                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview); 
+                }
+            
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) && !history.empty())
+                {
+                    std::vector<int> item = history.back();
+                    history.pop_back();
+
+                    map.changeTileTexture(item[0], item[1]);
+                }
             }
         }
 
@@ -209,11 +300,13 @@ int main()
         window.setView(camera);
         window.draw(map);
         window.draw(highlighting, &tileset);
-        window.draw(dot);
-
+        
         window.setView(uiView);
         window.draw(box);
         window.draw(preview, &tileset);
+        window.draw(texGroupText);
+
+        window.setView(camera);
 
         window.display();
     }

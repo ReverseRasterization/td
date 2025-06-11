@@ -8,6 +8,7 @@ class Map : public sf::Drawable, public sf::Transformable
         bool changeTileTexture(int tileID, int nTexture);
 
         int getTileFromPosition(sf::Vector2f position);
+        int getTileTexture(int tileID){return m_tiles[tileID];}
 
         Map(sf::Texture& tileset):m_tileset(tileset){};
 

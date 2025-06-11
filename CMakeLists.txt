@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(Pointer LANGUAGES C CXX)
 
+set(SFML_STATIC_LIBRARIES TRUE)
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-#add_compile_options(-static)
-#add_link_options(-static)
 
 include(FetchContent)
 FetchContent_Declare(SFML

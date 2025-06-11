@@ -1,0 +1,9 @@
+            *** Roads ***
+
+Left Horizontal Road Ending: 109
+Stright Horizontal Road: 110
+Right Horizonal Road Ending: 111
+
+Right-Hand Turn: 129
+
+
