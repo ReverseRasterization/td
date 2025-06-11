@@ -9,8 +9,6 @@ sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vecto
 
 void updateSelectionPreview(int nTex, sf::Texture& tilemap, sf::VertexArray& va)
 {
-    std::cout << "Called!";
-
     int row = std::floor(nTex/18); // 18 columns
     int column = std::floor(nTex%18);
 
@@ -43,9 +41,6 @@ int main()
     sf::View uiView;
     uiView.setCenter({400,400});
     uiView.setSize({800, 800});
-
-    
-    
 
     // Map Setup
     sf::Texture tileset;
@@ -84,6 +79,19 @@ int main()
 
     updateSelectionPreview(0, tileset, preview);
 
+    sf::VertexArray highlighting(sf::PrimitiveType::Triangles, 6);
+
+    highlighting[0].texCoords = {119.f, 51.f}; // Top-Left
+    highlighting[1].texCoords = {119.f, 67.f}; // Bottom-Left
+    highlighting[2].texCoords = {135.f, 67.f}; // Bottom-Right
+
+    highlighting[3].texCoords = {119.f, 51.f}; // Top-Left
+    highlighting[4].texCoords = {135.f, 67.f}; // Bottom-Right
+    highlighting[5].texCoords = {135.f, 51.f}; // Top-Right
+
+    sf::CircleShape dot(2.f);
+    dot.setFillColor(sf::Color::Red);
+    dot.setOrigin({1.f, 1.f});
 
     // Variables for camera movement
     bool subscribed = false;
@@ -109,16 +117,37 @@ int main()
                 window.close();
             }
 
-            // Camera Movement
-            if (event->is<sf::Event::MouseMoved>() && subscribed) 
+            // Camera Movement & Block Highlighting
+            if (event->is<sf::Event::MouseMoved>()) 
             {
                 auto mousePos = sf::Mouse::getPosition(window);
-                float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
-                float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
 
-                sf::Vector2f delta = {xDiff, yDiff};
+                if (subscribed)
+                {
+                    float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
+                    float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
 
-                camera.setCenter(initialWorldPos - delta);
+                    sf::Vector2f delta = {xDiff, yDiff};
+
+                    camera.setCenter(initialWorldPos - delta);
+                }else {
+                    sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
+
+                    dot.setPosition(mouseWorld);
+
+                    float x = 16.f * (std::floor(mouseWorld.x/16));
+                    float y = 16.f * (std::floor(mouseWorld.y/16));
+                    float tileSize = 16.f;
+
+                    highlighting[0].position = {x, y}; // Top-Left
+                    highlighting[1].position = {x, y+tileSize}; // Bottom-Left
+                    highlighting[2].position = {x+tileSize, y+tileSize}; // Bottom Right
+
+                    highlighting[3].position = {x, y}; // Top Left
+                    highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
+                    highlighting[5].position = {x+tileSize, y}; // Top Right
+                }
+                
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
@@ -155,12 +184,20 @@ int main()
             {
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space))
                 {
-                    if (currTexture == 198)
+                    int x;
+                    
+                    std::cout << "Enter the tile: ";
+                    std::cin >> x;
+
+                    if (x > 198)
                     {
-                        currTexture = 0;
+                        std::cout << "Invalid.\n";
                     }else {
-                        currTexture++;
+                        currTexture = x;
+                        updateSelectionPreview(x, tileset, preview);
                     }
+
+                    
                 }
 
                 updateSelectionPreview(currTexture, tileset, preview);
@@ -171,6 +208,8 @@ int main()
 
         window.setView(camera);
         window.draw(map);
+        window.draw(highlighting, &tileset);
+        window.draw(dot);
 
         window.setView(uiView);
         window.draw(box);
