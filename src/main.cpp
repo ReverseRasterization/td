@@ -7,6 +7,11 @@
 #include <SFML/Graphics.hpp>
 #include "map.h"
 
+// TODO: Make it so that placing attempts cannot be made outside of the map
+// TODO: Revamp undo system to include redo and history limit
+// TODO: Make it so that a user can hold down the mouse to place blocks
+// TODO: Add overlay system
+
 struct TextureGroup
 {
     std::string s_name;
@@ -45,7 +50,6 @@ int main()
 
     // Camera / Views
     sf::View camera;
-    camera.setCenter({400,400});
     camera.setSize({800,800});
 
     sf::View uiView;
@@ -53,6 +57,13 @@ int main()
     uiView.setSize({800, 800});
 
     // Map Setup
+    constexpr int width {100};
+    constexpr int height {500};
+    constexpr std::size_t size = width * height;
+    int tileSize {10};
+
+    camera.setCenter({static_cast<float>((width*tileSize)/2), static_cast<float>((height*tileSize)/2)});
+
     sf::Texture tileset;
     if(!tileset.loadFromFile("assets/tilemap.png"))
     {
@@ -61,11 +72,12 @@ int main()
     }
 
     Map map(tileset);
-    std::array<int, 2500> level;
+    std::array<int, size> level;
     for (int& tile : level) {
         tile = 2;
     }
-    if (map.load(level.data(), 50, 50, 16))
+
+    if (map.load(level.data(), width, height, tileSize))
     {   
         std::cout << "Loaded!\n";
     }else {
@@ -113,6 +125,13 @@ int main()
     texGroupText.setFillColor(sf::Color::Red);
     texGroupText.setStyle(sf::Text::Bold);
 
+    sf::Text fpsText(font);
+    fpsText.setString("FPS: 0");
+    fpsText.setCharacterSize(24);
+    fpsText.setPosition({10.f, 766.f});
+    fpsText.setFillColor(sf::Color::Red);
+    fpsText.setStyle(sf::Text::Bold);
+
     // Variables for camera movement
     bool subscribed = false;
     sf::Vector2i initialMousePos;
@@ -136,6 +155,13 @@ int main()
     };
 
     std::vector<std::vector<int>> history; // each item: {tileID, textureID}
+
+    // FPS Variables
+
+    sf::Clock clock;    
+    int fps {0};
+    int i {0};
+    
 
     while (window.isOpen())
     {
@@ -163,9 +189,8 @@ int main()
 
                 sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
 
-                float x = 16.f * (std::floor(mouseWorld.x/16));
-                float y = 16.f * (std::floor(mouseWorld.y/16));
-                float tileSize = 16.f;
+                float x = tileSize * (std::floor(mouseWorld.x/tileSize));
+                float y = tileSize * (std::floor(mouseWorld.y/tileSize));
 
                 highlighting[0].position = {x, y}; // Top-Left
                 highlighting[1].position = {x, y+tileSize}; // Bottom-Left
@@ -295,6 +320,20 @@ int main()
             }
         }
 
+        float time = clock.getElapsedTime().asSeconds();
+        i++;
+
+        if (time > 1.f)
+        {
+
+            clock.restart();
+            fps = std::floor(i/time);
+
+            i = 0;
+        }
+
+        fpsText.setString("FPS: " + std::to_string(fps));
+
         window.clear();
 
         window.setView(camera);
@@ -305,6 +344,7 @@ int main()
         window.draw(box);
         window.draw(preview, &tileset);
         window.draw(texGroupText);
+        window.draw(fpsText);
 
         window.setView(camera);
 
