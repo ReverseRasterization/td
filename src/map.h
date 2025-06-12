@@ -1,14 +1,25 @@
+#pragma once
+
 #include <SFML/Graphics.hpp>
 #include <vector>
 
 class Map : public sf::Drawable, public sf::Transformable
 {
     public:
-        bool load(int* tiles, unsigned int width, unsigned int height, unsigned int tile_size);
-        bool changeTileTexture(int tileID, int nTexture);
+        struct Tile
+        {
+            uint16_t groundTexID;
+            uint16_t overlayTexID;
+            bool overlay;
+
+            Tile(uint16_t ground_texture, uint16_t overlay_texture, bool has_overlay):groundTexID(ground_texture), overlayTexID(overlay_texture), overlay(has_overlay){};
+        };
+
+        void load(std::vector<Tile> tiles, unsigned int width, unsigned int height, unsigned int tile_size);
+        void changeTileTexture(int tileID, bool overlay, int nTexture);
 
         int getTileFromPosition(sf::Vector2f position);
-        int getTileTexture(int tileID){return m_tiles[tileID];}
+        int getTileTexture(int tileID, bool overlay){return overlay ? m_tiles[tileID].overlayTexID : m_tiles[tileID].groundTexID;}
 
         Map(sf::Texture& tileset):m_tileset(tileset){};
 
@@ -18,13 +29,15 @@ class Map : public sf::Drawable, public sf::Transformable
             states.transform *= getTransform();
             states.texture = &m_tileset;
 
-            target.draw(m_verticies, states);
+            target.draw(g_verticies, states);
+            target.draw(o_verticies, states);
         }
 
-        sf::VertexArray m_verticies;
+        sf::VertexArray g_verticies;
+        sf::VertexArray o_verticies;
         sf::Texture m_tileset;
 
-        int* m_tiles;
+        std::vector<Tile> m_tiles;
 
         unsigned int m_width;
         unsigned int m_height;

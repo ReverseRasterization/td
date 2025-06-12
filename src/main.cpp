@@ -6,40 +6,22 @@
 
 #include <SFML/Graphics.hpp>
 #include "map.h"
+#include "tsm.h"
 
-// TODO: Make it so that placing attempts cannot be made outside of the map
-// TODO: Revamp undo system to include redo and history limit
-// TODO: Make it so that a user can hold down the mouse to place blocks
-// TODO: Add overlay system
+// TODO: Add Delete Mode For Overlays
+// TODO: Add different pointers
 
-struct TextureGroup
+
+struct Action
 {
-    std::string s_name;
-    std::vector<int> s_textureIDs;
+    int tileID;
+    int oldTex, newTex;
 
-    TextureGroup(std::string name, std::vector<int> textureIDs): s_name(name), s_textureIDs(textureIDs){};
+    bool overlay;
 };
 
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
-
-void updateSelectionPreview(int nTex, sf::Texture& tilemap, sf::VertexArray& va)
-{
-    int row = std::floor(nTex/18); // 18 columns
-    int column = std::floor(nTex%18);
-
-    sf::Vector2f textureTL {column * 17.f, row * 17.f}; // you have 17 bc its tile size + spacing (16 + 1)
-    sf::Vector2f textureBL {textureTL.x, textureTL.y + 16};
-    sf::Vector2f textureTR {textureTL.x + 16, textureTL.y};
-    sf::Vector2f textureBR {textureTL.x + 16, textureTL.y + 16};
-
-    va[0].texCoords = textureTL;
-    va[1].texCoords = textureBL;
-    va[2].texCoords = textureBR;
-
-    va[3].texCoords = textureTL;
-    va[4].texCoords = textureBR;
-    va[5].texCoords = textureTR;
-}
+void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize);
 
 int main()
 {   
@@ -57,10 +39,10 @@ int main()
     uiView.setSize({800, 800});
 
     // Map Setup
-    constexpr int width {100};
-    constexpr int height {500};
+    constexpr int width {25};
+    constexpr int height {25};
     constexpr std::size_t size = width * height;
-    int tileSize {10};
+    int tileSize {16};
 
     camera.setCenter({static_cast<float>((width*tileSize)/2), static_cast<float>((height*tileSize)/2)});
 
@@ -72,34 +54,23 @@ int main()
     }
 
     Map map(tileset);
-    std::array<int, size> level;
-    for (int& tile : level) {
-        tile = 2;
+
+    std::vector<Map::Tile> level;
+
+    for (int i = 0; i < (width * height); i++)
+    {
+        level.push_back(Map::Tile(2, 0, false));
     }
 
-    if (map.load(level.data(), width, height, tileSize))
-    {   
-        std::cout << "Loaded!\n";
-    }else {
-        std::cerr << "Failed to load map!";
-        return -1; 
-    }
+    map.load(level, width, height, tileSize);
 
     // UI Elements
-    sf::RectangleShape box({100.f, 100.f});
-    box.setPosition({700.f, 0.f});
-
-    sf::VertexArray preview(sf::PrimitiveType::Triangles, 6);
-
-    preview[0].position = {725.f, 25.f};
-    preview[1].position = {725.f, 75.f};
-    preview[2].position = {775.f, 75.f};
-
-    preview[3].position = {725.f, 25.f};
-    preview[4].position = {775.f, 75.f};
-    preview[5].position = {775.f, 25.f};
-
-    updateSelectionPreview(0, tileset, preview);
+    sf::Font font;
+    if (!font.openFromFile("assets/font.ttf"))
+    {
+        std::cerr << "Failed to load font!\n";
+        return -1;
+    }
 
     sf::VertexArray highlighting(sf::PrimitiveType::Triangles, 6);
 
@@ -111,15 +82,8 @@ int main()
     highlighting[4].texCoords = {135.f, 67.f}; // Bottom-Right
     highlighting[5].texCoords = {135.f, 51.f}; // Top-Right
 
-    sf::Font font;
-    if (!font.openFromFile("assets/font.ttf"))
-    {
-        std::cerr << "Failed to load font!\n";
-        return -1;
-    }
-
     sf::Text texGroupText(font);
-    texGroupText.setString("Current Texture Group: Grasses");
+    texGroupText.setString("Current Texture Group: Grass");
     texGroupText.setCharacterSize(24);
     texGroupText.setPosition({10.f, 10.f});
     texGroupText.setFillColor(sf::Color::Red);
@@ -132,8 +96,24 @@ int main()
     fpsText.setFillColor(sf::Color::Red);
     fpsText.setStyle(sf::Text::Bold);
 
+    sf::Text overlayModeText(font);
+    overlayModeText.setString("Overlay Mode");
+    overlayModeText.setCharacterSize(24);
+    overlayModeText.setPosition({10.f, 49.f});
+    overlayModeText.setFillColor(sf::Color::Blue);
+    overlayModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
+
+    // Texture Selection Manager Setup
+    TextureSelectionManager textureSelectionManager(tileset, texGroupText);
+    textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Grass", {0,1,2}), false);
+    textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Water", {37}), false);
+    textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Horizontal Roads", {109, 110, 111}), true);
+    textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Vertical Roads", {126, 144, 162}), true);
+    textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Curved Roads", {127, 129, 163, 165}), true);
+
     // Variables for camera movement
-    bool subscribed = false;
+    bool leftDown = false;
+    bool rightDown = false;
     sf::Vector2i initialMousePos;
     sf::Vector2f initialWorldPos;
 
@@ -145,19 +125,13 @@ int main()
     float zoomFactor = 1.f;
 
     // Variables for building
-    int currGroup{0};
-    int currTextureIndex{0};
-    std::vector<TextureGroup> textureGroups {
-        TextureGroup("Grass", {0,1,2}),
-        TextureGroup("Horizontal Roads", {109, 110, 111}),
-        TextureGroup("Vertical Roads", {126, 144, 162}),
-        TextureGroup("Curved Roads", {127, 129, 163, 165}),
-    };
+    std::vector<Action> undoStack;
+    std::vector<Action> redoStack;
 
-    std::vector<std::vector<int>> history; // each item: {tileID, textureID}
+    bool overlayMode {false};
+    bool showOverlay {true};
 
     // FPS Variables
-
     sf::Clock clock;    
     int fps {0};
     int i {0};
@@ -172,12 +146,13 @@ int main()
                 window.close();
             }
 
-            // Camera Movement & Block Highlighting
+            // Camera Movement & Block Highlighting & Placing
             if (event->is<sf::Event::MouseMoved>()) 
             {
                 auto mousePos = sf::Mouse::getPosition(window);
+                sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
 
-                if (subscribed)
+                if (rightDown)
                 {
                     float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
                     float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
@@ -185,9 +160,10 @@ int main()
                     sf::Vector2f delta = {xDiff, yDiff};
 
                     camera.setCenter(initialWorldPos - delta);
+                }else if (leftDown)
+                {
+                    placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, mouseWorld, width, height, tileSize);
                 }
-
-                sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
 
                 float x = tileSize * (std::floor(mouseWorld.x/tileSize));
                 float y = tileSize * (std::floor(mouseWorld.y/tileSize));
@@ -199,39 +175,31 @@ int main()
                 highlighting[3].position = {x, y}; // Top Left
                 highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
                 highlighting[5].position = {x+tileSize, y}; // Top Right
-                
-                
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
             {
                 if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
                 {
-                    subscribed = true;
+                    rightDown = true;
                     initialMousePos = sf::Mouse::getPosition(window);
                     initialWorldPos = camera.getCenter();
                 }else if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { // user wanna build
-                    sf::Vector2f mouseWorld = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-
-                    int tile = map.getTileFromPosition(mouseWorld);
-                    int currTex = textureGroups[currGroup].s_textureIDs[currTextureIndex];
-
-                    if (map.getTileTexture(tile) != currTex) {
-                        history.push_back({tile, map.getTileTexture(tile)});
-
-                        map.changeTileTexture(tile, currTex);
-                    }
-
-                    
+                    leftDown = true;
+                    placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
                 }
-                
             }
 
             if (event->is<sf::Event::MouseButtonReleased>())
             {
                 if (!sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
                 {
-                    subscribed = false;
+                    rightDown = false;
+                }
+
+                if (!sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
+                {
+                    leftDown = false;
                 }
                 
             }
@@ -262,60 +230,52 @@ int main()
                     int factor;
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LAlt))
                     {
-                        factor = -1;
+                        textureSelectionManager.scrollTextureGroup(-1);
                     }else {
-                        factor = 1;
-                    }
-
-                    currGroup += factor;
-
-                    if (currGroup == textureGroups.size())
-                    {
-                        currGroup = 0;
-                    }else if (currGroup == -1){
-                        currGroup = textureGroups.size()-1;
-                    }
-
-                    currTextureIndex = 0;
-
-                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview);  
-                    texGroupText.setString("Current Texture Group: " + textureGroups[currGroup].s_name);  
+                        textureSelectionManager.scrollTextureGroup(1);
+                    }                    
                 }
 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) // Go backward in texture group
                 {
-                    int texSelectionSize = textureGroups[currGroup].s_textureIDs.size();
-
-                    if (currTextureIndex == 0)
-                    {
-                        currTextureIndex = texSelectionSize-1;
-                    }else {
-                        currTextureIndex--;
-                    }
-
-                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview); 
+                    textureSelectionManager.scrollTexture(-1);
                 }
 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) // Go forward in texture group
                 {
-                    int texSelectionSize = textureGroups[currGroup].s_textureIDs.size();
-
-                    if (currTextureIndex == texSelectionSize-1)
-                    {
-                        currTextureIndex = 0;
-                    }else {
-                        currTextureIndex++;
-                    }
-
-                    updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex], tileset, preview); 
+                    textureSelectionManager.scrollTexture(1);
                 }
             
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) && !history.empty())
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z)) // Undo & Redo
                 {
-                    std::vector<int> item = history.back();
-                    history.pop_back();
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) && !redoStack.empty()) // redo
+                    {
+                        Action item = redoStack.back();
+                        redoStack.pop_back();
+                        undoStack.push_back(item);
+                        
+                        map.changeTileTexture(item.tileID, overlayMode, item.newTex);
+                    }
+                    
+                    if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) && !undoStack.empty()) { // undo
+                        Action item = undoStack.back();
+                        undoStack.pop_back();
+                        redoStack.push_back(item);
 
-                    map.changeTileTexture(item[0], item[1]);
+                        map.changeTileTexture(item.tileID, overlayMode, item.oldTex); 
+                    }
+                }
+            
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::O)) // Overlay Mode Toggle
+                {
+                    if (overlayMode)
+                    {
+                        overlayMode = false;
+                    }else {
+                        overlayMode = true;
+                    }
+
+                    textureSelectionManager.setOverlayMode(overlayMode);
                 }
             }
         }
@@ -325,7 +285,6 @@ int main()
 
         if (time > 1.f)
         {
-
             clock.restart();
             fps = std::floor(i/time);
 
@@ -341,10 +300,9 @@ int main()
         window.draw(highlighting, &tileset);
         
         window.setView(uiView);
-        window.draw(box);
-        window.draw(preview, &tileset);
-        window.draw(texGroupText);
+        window.draw(textureSelectionManager);
         window.draw(fpsText);
+        if (overlayMode){ window.draw(overlayModeText);}
 
         window.setView(camera);
 
@@ -360,4 +318,32 @@ sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vecto
     float y = std::clamp(vector.y, min_vector.y, max_vector.y);
 
     return {x,y};
+}
+
+void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize)
+{
+    if (mouseWorld.x < 0 || mouseWorld.x > width * tileSize || mouseWorld.y < 0 || mouseWorld.y > height * tileSize) {return;}
+
+    int currTex = textureSelectionManager.getCurrentTexture();
+    int tileID = map.getTileFromPosition(mouseWorld);
+    int oldTex = map.getTileTexture(tileID, overlayMode);
+
+    if (oldTex == currTex) {return;}
+
+    map.changeTileTexture(tileID, overlayMode, currTex);
+
+    Action nAction {
+        .tileID = tileID,
+        .oldTex = oldTex,
+        .newTex = currTex,
+        .overlay = overlayMode
+    };
+
+    
+    if (undoStack.size() == 500)
+    {
+        undoStack = {};
+    }
+    undoStack.push_back(nAction);
+    redoStack = {};
 }
