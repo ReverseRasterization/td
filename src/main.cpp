@@ -8,10 +8,6 @@
 #include "map.h"
 #include "tsm.h"
 
-// TODO: Add Delete Mode For Overlays
-// TODO: Add different pointers
-
-
 struct Action
 {
     int tileID;
@@ -20,8 +16,18 @@ struct Action
     bool overlay;
 };
 
+enum Pointers
+{
+    Default,
+    Overlay,
+    Delete
+};
+
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
+
+void changePointer(sf::VertexArray& pointer, Pointers pointer_type);
 void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize);
+void deleteOverlayTile(Map& map, std::vector<Action>& undoStack, std::vector<Action>& redoStack, sf::Vector2f mouseWorld, int width, int height, int tileSize);
 
 int main()
 {   
@@ -72,15 +78,15 @@ int main()
         return -1;
     }
 
+    sf::Texture pointerSet;
+    if(!pointerSet.loadFromFile("assets/pointers.png"))
+    {
+        std::cerr << "Failed to load pointer tileset!";
+        return -1;
+    }
+
     sf::VertexArray highlighting(sf::PrimitiveType::Triangles, 6);
-
-    highlighting[0].texCoords = {119.f, 51.f}; // Top-Left
-    highlighting[1].texCoords = {119.f, 67.f}; // Bottom-Left
-    highlighting[2].texCoords = {135.f, 67.f}; // Bottom-Right
-
-    highlighting[3].texCoords = {119.f, 51.f}; // Top-Left
-    highlighting[4].texCoords = {135.f, 67.f}; // Bottom-Right
-    highlighting[5].texCoords = {135.f, 51.f}; // Top-Right
+    changePointer(highlighting, Pointers::Default);
 
     sf::Text texGroupText(font);
     texGroupText.setString("Current Texture Group: Grass");
@@ -102,6 +108,13 @@ int main()
     overlayModeText.setPosition({10.f, 49.f});
     overlayModeText.setFillColor(sf::Color::Blue);
     overlayModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
+
+    sf::Text deleteModeText(font);
+    deleteModeText.setString("Delete Mode enabled");
+    deleteModeText.setCharacterSize(18);
+    deleteModeText.setPosition({25.f, 80.f});
+    deleteModeText.setFillColor(sf::Color::Red);
+    deleteModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
     // Texture Selection Manager Setup
     TextureSelectionManager textureSelectionManager(tileset, texGroupText);
@@ -129,6 +142,7 @@ int main()
     std::vector<Action> redoStack;
 
     bool overlayMode {false};
+    bool deleteMode {false};
     bool showOverlay {true};
 
     // FPS Variables
@@ -162,7 +176,13 @@ int main()
                     camera.setCenter(initialWorldPos - delta);
                 }else if (leftDown)
                 {
-                    placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, mouseWorld, width, height, tileSize);
+                    if (deleteMode)
+                    {
+                        deleteOverlayTile(map, undoStack, redoStack, mouseWorld, width, height, tileSize);
+                    }else {
+                        placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, mouseWorld, width, height, tileSize);
+                    }
+                    
                 }
 
                 float x = tileSize * (std::floor(mouseWorld.x/tileSize));
@@ -186,7 +206,13 @@ int main()
                     initialWorldPos = camera.getCenter();
                 }else if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { // user wanna build
                     leftDown = true;
-                    placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
+
+                    if (deleteMode)
+                    {
+                        deleteOverlayTile(map, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
+                    }else {
+                        placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
+                    }
                 }
             }
 
@@ -271,11 +297,27 @@ int main()
                     if (overlayMode)
                     {
                         overlayMode = false;
+                        deleteMode = false;
+
+                        changePointer(highlighting, Pointers::Default);
                     }else {
                         overlayMode = true;
+                        changePointer(highlighting, Pointers::Overlay);
                     }
 
                     textureSelectionManager.setOverlayMode(overlayMode);
+                }
+            
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D) && overlayMode) // Delete Mode Toggle
+                {
+                    if (deleteMode)
+                    {
+                        deleteMode = false;
+                        changePointer(highlighting, Pointers::Overlay);
+                    }else {
+                        deleteMode = true;
+                        changePointer(highlighting, Pointers::Delete);
+                    }
                 }
             }
         }
@@ -297,12 +339,13 @@ int main()
 
         window.setView(camera);
         window.draw(map);
-        window.draw(highlighting, &tileset);
+        window.draw(highlighting, &pointerSet);
         
         window.setView(uiView);
         window.draw(textureSelectionManager);
         window.draw(fpsText);
         if (overlayMode){ window.draw(overlayModeText);}
+        if (deleteMode){ window.draw(deleteModeText);}
 
         window.setView(camera);
 
@@ -320,6 +363,24 @@ sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vecto
     return {x,y};
 }
 
+void recordAction(std::vector<Action>& undo_stack, std::vector<Action>& redo_stack, int tileID, int old_texture, int new_texture, bool is_overlay)
+{
+    Action nAction {
+        .tileID = tileID,
+        .oldTex = old_texture,
+        .newTex = new_texture,
+        .overlay = is_overlay
+    };
+
+    
+    if (undo_stack.size() == 500)
+    {
+        undo_stack = {};
+    }
+    undo_stack.push_back(nAction);
+    redo_stack = {};
+}
+
 void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize)
 {
     if (mouseWorld.x < 0 || mouseWorld.x > width * tileSize || mouseWorld.y < 0 || mouseWorld.y > height * tileSize) {return;}
@@ -332,18 +393,44 @@ void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelec
 
     map.changeTileTexture(tileID, overlayMode, currTex);
 
-    Action nAction {
-        .tileID = tileID,
-        .oldTex = oldTex,
-        .newTex = currTex,
-        .overlay = overlayMode
-    };
+    recordAction(undoStack, redoStack, tileID, oldTex, currTex, overlayMode);
+}
 
-    
-    if (undoStack.size() == 500)
+void deleteOverlayTile(Map& map, std::vector<Action>& undoStack, std::vector<Action>& redoStack, sf::Vector2f mouseWorld, int width, int height, int tileSize)
+{
+    if (mouseWorld.x < 0 || mouseWorld.x > width * tileSize || mouseWorld.y < 0 || mouseWorld.y > height * tileSize) {return;}
+
+    int tileID = map.getTileFromPosition(mouseWorld);
+    int currentTex = map.getTileTexture(tileID, true);
+
+    if (currentTex == 0) {return;}
+
+    map.changeTileTexture(tileID, true, 0);
+
+    recordAction(undoStack, redoStack, tileID, currentTex, 0, true);
+}
+
+void changePointer(sf::VertexArray& pointer, Pointers pointer_type)
+{
+    sf::Vector2f TL;
+    switch(pointer_type)
     {
-        undoStack = {};
+        case Default:
+            TL = {0.f, 0.f};
+            break;
+        case Overlay:
+            TL = {17.f, 0.f};
+            break;
+        case Delete:
+            TL = {34.f, 0.f};
+            break;
     }
-    undoStack.push_back(nAction);
-    redoStack = {};
+
+    pointer[0].texCoords = TL; // Top-Left
+    pointer[1].texCoords = {TL.x, 16.f}; // Bottom-Left
+    pointer[2].texCoords = {TL.x + 16.f, TL.y + 16.f}; // Bottom-Right
+
+    pointer[3].texCoords =  TL; // Top-Left
+    pointer[4].texCoords = {TL.x + 16.f, TL.y + 16.f}; // Bottom-Right
+    pointer[5].texCoords = {TL.x + 16.f, TL.y}; // Top-Right
 }
