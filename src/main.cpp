@@ -8,6 +8,9 @@
 #include "map.h"
 #include "tsm.h"
 
+// TODO: Customize Map & Tile Size
+// TODO: Map Save & Upload System
+
 struct Action
 {
     int tileID;
@@ -33,7 +36,7 @@ int main()
 {   
     // Window
     sf::Vector2u userDesktopSize = sf::VideoMode::getDesktopMode().size;
-    sf::RenderWindow window(sf::VideoMode({800,800}), "My window", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode({800,800}), "TD Map Maker", sf::Style::Titlebar | sf::Style::Close);
     window.setPosition({static_cast<int>((userDesktopSize.x/2)-400), static_cast<int>((userDesktopSize.y/2)-400)});
 
     // Camera / Views
