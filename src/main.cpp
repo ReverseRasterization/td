@@ -7,9 +7,14 @@
 #include <SFML/Graphics.hpp>
 #include "map.h"
 #include "tsm.h"
+#include "ui/button.h"
 
-// TODO: Customize Map & Tile Size
-// TODO: Map Save & Upload System
+/*
+    TODO LIST
+
+    1. Customize Map & Tile Size
+    2. Add Map Save & Upload System
+*/
 
 struct Action
 {
@@ -119,6 +124,8 @@ int main()
     deleteModeText.setFillColor(sf::Color::Red);
     deleteModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
+    Button menuButton({750.f, 750.f}, {50.f, 50.f});
+
     // Texture Selection Manager Setup
     TextureSelectionManager textureSelectionManager(tileset, texGroupText);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Grass", {0,1,2}), false);
@@ -202,6 +209,8 @@ int main()
 
             if (event->is<sf::Event::MouseButtonPressed>())
             {
+                menuButton.handleClick(sf::Mouse::getPosition(window));
+
                 if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
                 {
                     rightDown = true;
@@ -349,6 +358,7 @@ int main()
         window.draw(fpsText);
         if (overlayMode){ window.draw(overlayModeText);}
         if (deleteMode){ window.draw(deleteModeText);}
+        menuButton.draw(window);
 
         window.setView(camera);
 
