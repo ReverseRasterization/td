@@ -9,6 +9,7 @@
 #include "map.h"
 #include "tsm.h"
 #include "menu.h"
+#include "history.h"
 #include "ui/button.h"
 
 /*
@@ -17,14 +18,6 @@
     1. Customize Map & Tile Size
     2. Add Map Save & Upload System
 */
-
-struct Action
-{
-    int tileID;
-    int oldTex, newTex;
-
-    bool overlay;
-};
 
 enum Pointers
 {
@@ -36,8 +29,8 @@ enum Pointers
 sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vector2f max_vector);
 
 void changePointer(sf::VertexArray& pointer, Pointers pointer_type);
-void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize);
-void deleteOverlayTile(Map& map, std::vector<Action>& undoStack, std::vector<Action>& redoStack, sf::Vector2f mouseWorld, int width, int height, int tileSize);
+void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, HistoryManager& history,sf::Vector2f mouseWorld, int width, int height, int tileSize);
+void deleteOverlayTile(Map& map, HistoryManager& history, sf::Vector2f mouseWorld, int width, int height, int tileSize);
 
 int main()
 {   
@@ -95,6 +88,13 @@ int main()
         return -1;
     }
 
+    sf::Texture buttonSet;
+    if(!buttonSet.loadFromFile("assets/uicons.png"))
+    {
+        std::cerr << "Failed to load uicons tileset!";
+        return -1;
+    }
+
     sf::VertexArray highlighting(sf::PrimitiveType::Triangles, 6);
     changePointer(highlighting, Pointers::Default);
 
@@ -119,8 +119,6 @@ int main()
     deleteModeText.setFillColor(sf::Color::Red);
     deleteModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
-    Menu menu;
-
     // Texture Selection Manager Setup
     TextureSelectionManager textureSelectionManager(tileset);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Grass", {0,1,2}), false);
@@ -143,12 +141,13 @@ int main()
     float zoomFactor = 1.f;
 
     // Variables for building
-    std::vector<Action> undoStack;
-    std::vector<Action> redoStack;
-
     bool overlayMode {false};
     bool deleteMode {false};
     bool showOverlay {true};
+
+    HistoryManager history(&map, &overlayMode);
+
+    Menu menu(&buttonSet, history);
 
     // FPS Variables
     sf::Clock clock;    
@@ -171,54 +170,68 @@ int main()
                 auto mousePos = sf::Mouse::getPosition(window);
                 sf::Vector2f mouseWorld = window.mapPixelToCoords(mousePos);
 
-                if (rightDown)
-                {
-                    float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
-                    float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
-
-                    sf::Vector2f delta = {xDiff, yDiff};
-
-                    camera.setCenter(initialWorldPos - delta);
-                }else if (leftDown)
-                {
-                    if (deleteMode)
+                if (mousePos.y > 75){
+                    if (rightDown)
                     {
-                        deleteOverlayTile(map, undoStack, redoStack, mouseWorld, width, height, tileSize);
-                    }else {
-                        placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, mouseWorld, width, height, tileSize);
+                        float xDiff = (mousePos.x - initialMousePos.x) * zoomFactor;
+                        float yDiff = (mousePos.y - initialMousePos.y) * zoomFactor;
+
+                        sf::Vector2f delta = {xDiff, yDiff};
+
+                        camera.setCenter(initialWorldPos - delta);
+                    }else if (leftDown)
+                    {
+                        if (deleteMode)
+                        {
+                            deleteOverlayTile(map, history, mouseWorld, width, height, tileSize);
+                        }else {
+                            placeTile(overlayMode, map, textureSelectionManager, history, mouseWorld, width, height, tileSize);
+                        }
+                        
                     }
-                    
+
+                    float x = tileSize * (std::floor(mouseWorld.x/tileSize));
+                    float y = tileSize * (std::floor(mouseWorld.y/tileSize));
+
+                    highlighting[0].position = {x, y}; // Top-Left
+                    highlighting[1].position = {x, y+tileSize}; // Bottom-Left
+                    highlighting[2].position = {x+tileSize, y+tileSize}; // Bottom Right
+
+                    highlighting[3].position = {x, y}; // Top Left
+                    highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
+                    highlighting[5].position = {x+tileSize, y}; // Top Right
                 }
 
-                float x = tileSize * (std::floor(mouseWorld.x/tileSize));
-                float y = tileSize * (std::floor(mouseWorld.y/tileSize));
-
-                highlighting[0].position = {x, y}; // Top-Left
-                highlighting[1].position = {x, y+tileSize}; // Bottom-Left
-                highlighting[2].position = {x+tileSize, y+tileSize}; // Bottom Right
-
-                highlighting[3].position = {x, y}; // Top Left
-                highlighting[4].position = {x+tileSize, y+tileSize}; // Bottom right
-                highlighting[5].position = {x+tileSize, y}; // Top Right
+                
             }
 
             if (event->is<sf::Event::MouseButtonPressed>())
             {
-                if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
-                {
-                    rightDown = true;
-                    initialMousePos = sf::Mouse::getPosition(window);
-                    initialWorldPos = camera.getCenter();
-                }else if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { // user wanna build
-                    leftDown = true;
+                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 
-                    if (deleteMode)
+                if (mousePos.y > 75) {
+                    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
                     {
-                        deleteOverlayTile(map, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
-                    }else {
-                        placeTile(overlayMode, map, textureSelectionManager, undoStack, redoStack, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
+                        rightDown = true;
+                        initialMousePos = mousePos;
+                        initialWorldPos = camera.getCenter();
+                    }else if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { // user wanna build or something
+                        
+                        leftDown = true;
+
+                        if (deleteMode)
+                        {
+                            deleteOverlayTile(map, history, window.mapPixelToCoords(mousePos), width, height, tileSize);
+                        }else {
+                            
+                            placeTile(overlayMode, map, textureSelectionManager, history, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
+                        }
                     }
+                }else { 
+                    if(sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { menu.handleClick(mousePos); }
                 }
+
+                
             }
 
             if (event->is<sf::Event::MouseButtonReleased>())
@@ -279,22 +292,7 @@ int main()
             
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) && sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z)) // Undo & Redo
                 {
-                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) && !redoStack.empty()) // redo
-                    {
-                        Action item = redoStack.back();
-                        redoStack.pop_back();
-                        undoStack.push_back(item);
-                        
-                        map.changeTileTexture(item.tileID, overlayMode, item.newTex);
-                    }
-                    
-                    if (!sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) && !undoStack.empty()) { // undo
-                        Action item = undoStack.back();
-                        undoStack.pop_back();
-                        redoStack.push_back(item);
-
-                        map.changeTileTexture(item.tileID, overlayMode, item.oldTex); 
-                    }
+                    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) ? history.redo() : history.undo();
                 }
             
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::O)) // Overlay Mode Toggle
@@ -370,25 +368,7 @@ sf::Vector2f clampVector(sf::Vector2f vector, sf::Vector2f min_vector, sf::Vecto
     return {x,y};
 }
 
-void recordAction(std::vector<Action>& undo_stack, std::vector<Action>& redo_stack, int tileID, int old_texture, int new_texture, bool is_overlay)
-{
-    Action nAction {
-        .tileID = tileID,
-        .oldTex = old_texture,
-        .newTex = new_texture,
-        .overlay = is_overlay
-    };
-
-    
-    if (undo_stack.size() == 500)
-    {
-        undo_stack = {};
-    }
-    undo_stack.push_back(nAction);
-    redo_stack = {};
-}
-
-void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, std::vector<Action>& undoStack, std::vector<Action>& redoStack,sf::Vector2f mouseWorld, int width, int height, int tileSize)
+void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelectionManager, HistoryManager& history,sf::Vector2f mouseWorld, int width, int height, int tileSize)
 {
     if (mouseWorld.x < 0 || mouseWorld.x > width * tileSize || mouseWorld.y < 0 || mouseWorld.y > height * tileSize) {return;}
 
@@ -396,14 +376,15 @@ void placeTile(bool overlayMode, Map& map, TextureSelectionManager& textureSelec
     int tileID = map.getTileFromPosition(mouseWorld);
     int oldTex = map.getTileTexture(tileID, overlayMode);
 
+    std::cout << "To place:\n   Old Texture: " << oldTex << "\n     New Texture: " << currTex << '\n';
+
     if (oldTex == currTex) {return;}
 
     map.changeTileTexture(tileID, overlayMode, currTex);
-
-    recordAction(undoStack, redoStack, tileID, oldTex, currTex, overlayMode);
+    history.recordAction(tileID, oldTex, currTex);
 }
 
-void deleteOverlayTile(Map& map, std::vector<Action>& undoStack, std::vector<Action>& redoStack, sf::Vector2f mouseWorld, int width, int height, int tileSize)
+void deleteOverlayTile(Map& map, HistoryManager& history, sf::Vector2f mouseWorld, int width, int height, int tileSize)
 {
     if (mouseWorld.x < 0 || mouseWorld.x > width * tileSize || mouseWorld.y < 0 || mouseWorld.y > height * tileSize) {return;}
 
@@ -414,7 +395,7 @@ void deleteOverlayTile(Map& map, std::vector<Action>& undoStack, std::vector<Act
 
     map.changeTileTexture(tileID, true, 0);
 
-    recordAction(undoStack, redoStack, tileID, currentTex, 0, true);
+    history.recordAction(tileID, currentTex, 0);
 }
 
 void changePointer(sf::VertexArray& pointer, Pointers pointer_type)

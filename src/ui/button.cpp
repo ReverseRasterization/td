@@ -14,6 +14,8 @@ Button::Button(sf::Vector2f position, sf::Vector2f size, std::optional<Button::T
         btnText = std::move(button_text);
     }else if (button_texture.has_value())
     {
+        btnTexture = button_texture;
+
         rect.setTexture(button_texture->t_texture);
         rect.setTextureRect(sf::IntRect(button_texture->t_tile_position, button_texture->t_tile_size));
     }
@@ -35,4 +37,19 @@ void Button::setText(std::string new_text)
     btnText->t_txt->setOrigin(textBounds.getCenter());
 
     btnText->t_txt.get()->setPosition({b_position.x + (b_size.x/2), b_position.y + (b_size.y / 2)});
+}
+
+void Button::setTexture(std::optional<Texture> new_texture, std::optional<sf::Vector2i> new_position)
+{
+    if (new_texture.has_value())
+    {
+        btnTexture = new_texture;
+
+        rect.setTexture(new_texture->t_texture);
+        rect.setTextureRect(sf::IntRect(new_texture->t_tile_position, new_texture->t_tile_size));
+    }else if (new_position.has_value())
+    {   
+        btnTexture->t_tile_position = new_position.value();
+        rect.setTextureRect(sf::IntRect(btnTexture->t_tile_position, btnTexture->t_tile_size));
+    }
 }

@@ -50,7 +50,4 @@ class TextureSelectionManager : public sf::Drawable, public sf::Transformable
         int currOverlayTextureIndex{0};
 
         bool tsm_overlayMode{false};
-
-
-
 }; 

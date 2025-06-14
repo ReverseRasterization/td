@@ -39,6 +39,7 @@ class Button
         void handleClick(sf::Vector2i pos);
 
         void setText(std::string new_text);
+        void setTexture(std::optional<Texture> new_texture=std::nullopt, std::optional<sf::Vector2i> new_position=std::nullopt);
 
         int getState(){return state;}
         void setState(int new_state){state=new_state;}
