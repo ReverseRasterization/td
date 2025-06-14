@@ -2,31 +2,75 @@
 
 #include <SFML/Graphics.hpp>
 #include <functional>
+#include <memory>
 
 class Button
 {
     public:
+        struct Text
+        {
+            std::string t_text;
+            unsigned int t_font_size;
+
+            sf::Font* t_font;
+            std::unique_ptr<sf::Text> t_txt;
+
+            Text(std::string text, sf::Font* font, unsigned int font_size=24, sf::Color text_color=sf::Color::Black, sf::Color outline_color=sf::Color::Black)
+            {
+                sf::Text nText(*font, text, font_size);
+                nText.setFillColor(text_color);
+                nText.setOutlineColor(outline_color);
+
+                t_txt = std::make_unique<sf::Text>(nText);
+            }
+        };
 
         struct Texture
         {
-            sf::Texture& textureTilemap;
-            
+            sf::Texture* t_texture;
+
+            sf::Vector2i t_tile_position;
+            sf::Vector2i t_tile_size;
+
+            Texture(sf::Texture* texture, sf::Vector2i tile_position, sf::Vector2i tile_size): t_texture(texture), t_tile_position(tile_position), t_tile_size(tile_size) {}
         };
 
-        std::function<void()> onClick;
+        std::function<void(Button& button)> onClick;
+        void handleClick(sf::Vector2i pos);
 
-        Button(sf::Vector2f position, sf::Vector2f size);
+        void setText(std::string new_text);
+
+        int getState(){return state;}
+        void setState(int new_state){state=new_state;}
 
         void draw(sf::RenderWindow& window)
         {
-            window.draw(rect);
+            if (btnTexture.has_value())
+            {
+                window.draw(rect);
+            }else {
+                window.draw(rect);
+            }
+            
+
+            if (btnText.has_value())
+            {
+                window.draw(*btnText->t_txt.get());
+            }
+            
         }
 
-        void handleClick(sf::Vector2i pos);
+        Button(sf::Vector2f position, sf::Vector2f size, std::optional<Text> button_text = std::nullopt, std::optional<Texture> button_texture = std::nullopt);
         
     private:
 
         sf::RectangleShape rect;
+        std::optional<Text> btnText;
+        sf::Font* font;
+
+        std::optional<Texture> btnTexture;
+
+        int state {0};
         
         sf::Vector2f b_position;
         sf::Vector2f b_size;

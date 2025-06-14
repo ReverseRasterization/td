@@ -23,7 +23,7 @@ class TextureSelectionManager : public sf::Drawable, public sf::Transformable
         int getCurrentTexture();
 
 
-        TextureSelectionManager(sf::Texture& tileset, sf::Text& texture_group_text);
+        TextureSelectionManager(sf::Texture& tileset);
 
     private:
 
@@ -32,15 +32,11 @@ class TextureSelectionManager : public sf::Drawable, public sf::Transformable
             states.transform *= getTransform();
             states.texture = &p_tileset;
 
-            target.draw(previewBackground, states);
             target.draw(p_verticies, states);
-            target.draw(*texGroupText, states);
         }
 
         void updateSelectionPreview(int nTex);
 
-        sf::RectangleShape previewBackground;
-        sf::Text* texGroupText;
 
         sf::VertexArray p_verticies;
         sf::Texture p_tileset;

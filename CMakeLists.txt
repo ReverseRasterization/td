@@ -16,7 +16,7 @@ FetchContent_Declare(SFML
 
 FetchContent_MakeAvailable(SFML)
 
-add_executable(main src/main.cpp src/map.cpp src/tsm.cpp src/ui/button.cpp)
+add_executable(main src/main.cpp src/map.cpp src/tsm.cpp src/menu.cpp src/ui/button.cpp)
 add_custom_command(TARGET main POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/assets ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets

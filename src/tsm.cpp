@@ -1,24 +1,22 @@
 #include "tsm.h"
 #include <cmath>
 
-TextureSelectionManager::TextureSelectionManager(sf::Texture& tileset, sf::Text& texture_group_text)
+TextureSelectionManager::TextureSelectionManager(sf::Texture& tileset)
 {
-    texGroupText = &texture_group_text;
     p_tileset = tileset;
-
-
-    previewBackground.setSize({100.f, 100.f});
-    previewBackground.setPosition({700.f, 0.f});
 
     p_verticies.setPrimitiveType(sf::PrimitiveType::Triangles);
     p_verticies.resize(6);
 
-    p_verticies[0].position = {725.f, 25.f};
-    p_verticies[1].position = {725.f, 75.f};
-    p_verticies[2].position = {775.f, 75.f};
-    p_verticies[3].position = {725.f, 25.f};
-    p_verticies[4].position = {775.f, 75.f};
-    p_verticies[5].position = {775.f, 25.f};
+    sf::Vector2f origin = {737.5f, 12.5f};
+    float size = 50;
+
+    p_verticies[0].position = origin;                             // TL
+    p_verticies[1].position = origin + sf::Vector2f{0.f, size};    // BL
+    p_verticies[2].position = origin + sf::Vector2f{size, size};                      // BR
+    p_verticies[3].position = origin;                             // TL
+    p_verticies[4].position = origin + sf::Vector2f{size, size};                      // BR
+    p_verticies[5].position = origin + sf::Vector2f{size, 0.f};                      // TR
 }
 
 void TextureSelectionManager::updateSelectionPreview(int nTex)
@@ -57,11 +55,8 @@ void TextureSelectionManager::setOverlayMode(bool overlayMode)
     if (overlayMode)
     {
         updateSelectionPreview(overlayTextureGroups[currOverlayGroup].s_textureIDs[currOverlayTextureIndex]);
-        texGroupText->setString("Current Texture Group: " + overlayTextureGroups[currOverlayGroup].s_name);
     }else {
-        updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex]);  
-        texGroupText->setString("Current Texture Group: " + textureGroups[currGroup].s_name); 
-        
+        updateSelectionPreview(textureGroups[currGroup].s_textureIDs[currTextureIndex]);          
     }
 }
 
@@ -83,7 +78,6 @@ void TextureSelectionManager::scrollTextureGroup(int factor)
 
     index = 0;
     updateSelectionPreview(groups[_currGroup].s_textureIDs[index]);
-    texGroupText->setString("Current Texture Group: " + groups[_currGroup].s_name);
 }
 
 void TextureSelectionManager::scrollTexture(int factor)
@@ -104,9 +98,6 @@ void TextureSelectionManager::scrollTexture(int factor)
     {
         index = 0;
     }
-
-
-    std::cout << index << '\n';
 
     updateSelectionPreview(groups[groupIndex].s_textureIDs[index]);
 }

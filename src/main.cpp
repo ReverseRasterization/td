@@ -3,10 +3,12 @@
 #include <cmath>
 #include <random>
 #include <vector>
+#include <functional>
 
 #include <SFML/Graphics.hpp>
 #include "map.h"
 #include "tsm.h"
+#include "menu.h"
 #include "ui/button.h"
 
 /*
@@ -96,13 +98,6 @@ int main()
     sf::VertexArray highlighting(sf::PrimitiveType::Triangles, 6);
     changePointer(highlighting, Pointers::Default);
 
-    sf::Text texGroupText(font);
-    texGroupText.setString("Current Texture Group: Grass");
-    texGroupText.setCharacterSize(24);
-    texGroupText.setPosition({10.f, 10.f});
-    texGroupText.setFillColor(sf::Color::Red);
-    texGroupText.setStyle(sf::Text::Bold);
-
     sf::Text fpsText(font);
     fpsText.setString("FPS: 0");
     fpsText.setCharacterSize(24);
@@ -111,23 +106,23 @@ int main()
     fpsText.setStyle(sf::Text::Bold);
 
     sf::Text overlayModeText(font);
-    overlayModeText.setString("Overlay Mode");
-    overlayModeText.setCharacterSize(24);
-    overlayModeText.setPosition({10.f, 49.f});
+    overlayModeText.setString("O");
+    overlayModeText.setCharacterSize(12);
+    overlayModeText.setPosition({720.f, 24.5f});
     overlayModeText.setFillColor(sf::Color::Blue);
     overlayModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
     sf::Text deleteModeText(font);
-    deleteModeText.setString("Delete Mode enabled");
-    deleteModeText.setCharacterSize(18);
-    deleteModeText.setPosition({25.f, 80.f});
+    deleteModeText.setString("D");
+    deleteModeText.setCharacterSize(12);
+    deleteModeText.setPosition({721.5f, 38.5f});
     deleteModeText.setFillColor(sf::Color::Red);
     deleteModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
-    Button menuButton({750.f, 750.f}, {50.f, 50.f});
+    Menu menu;
 
     // Texture Selection Manager Setup
-    TextureSelectionManager textureSelectionManager(tileset, texGroupText);
+    TextureSelectionManager textureSelectionManager(tileset);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Grass", {0,1,2}), false);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Water", {37}), false);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Horizontal Roads", {109, 110, 111}), true);
@@ -209,8 +204,6 @@ int main()
 
             if (event->is<sf::Event::MouseButtonPressed>())
             {
-                menuButton.handleClick(sf::Mouse::getPosition(window));
-
                 if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
                 {
                     rightDown = true;
@@ -354,12 +347,13 @@ int main()
         window.draw(highlighting, &pointerSet);
         
         window.setView(uiView);
-        window.draw(textureSelectionManager);
         window.draw(fpsText);
+        
+        menu.draw(window);
+        window.draw(textureSelectionManager);
         if (overlayMode){ window.draw(overlayModeText);}
         if (deleteMode){ window.draw(deleteModeText);}
-        menuButton.draw(window);
-
+        
         window.setView(camera);
 
         window.display();
