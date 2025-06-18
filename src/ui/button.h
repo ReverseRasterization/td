@@ -44,6 +44,8 @@ class Button
         int getState(){return state;}
         void setState(int new_state){state=new_state;}
 
+        void setPosition(sf::Vector2f position);
+
         void draw(sf::RenderWindow& window)
         {
             if (btnTexture.has_value())
@@ -61,7 +63,7 @@ class Button
             
         }
 
-        Button(sf::Vector2f position, sf::Vector2f size, std::optional<Text> button_text = std::nullopt, std::optional<Texture> button_texture = std::nullopt);
+        Button(sf::Vector2f position, sf::Vector2f size, std::optional<Text> button_text = std::nullopt, std::optional<Texture> button_texture = std::nullopt, std::optional<sf::Color> button_color = std::nullopt);
         
     private:
 

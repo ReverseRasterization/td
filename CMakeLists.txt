@@ -20,10 +20,13 @@ add_executable(main
                     src/main.cpp 
                     src/map.cpp 
                     src/tsm.cpp 
-                    src/menu.cpp 
                     src/history.cpp
                     
                     src/ui/button.cpp
+                    src/ui/textbox.cpp
+
+                    src/menu/menu.cpp 
+                    src/menu/mapconfig.cpp
 )
 
 add_custom_command(TARGET main POST_BUILD

@@ -1,6 +1,6 @@
 #include "button.h"
 
-Button::Button(sf::Vector2f position, sf::Vector2f size, std::optional<Button::Text> button_text, std::optional<Button::Texture> button_texture): b_position(position), b_size(size)
+Button::Button(sf::Vector2f position, sf::Vector2f size, std::optional<Button::Text> button_text, std::optional<Button::Texture> button_texture, std::optional<sf::Color> button_color): b_position(position), b_size(size)
 {
     rect.setSize(size);
     rect.setPosition(position);
@@ -18,6 +18,11 @@ Button::Button(sf::Vector2f position, sf::Vector2f size, std::optional<Button::T
 
         rect.setTexture(button_texture->t_texture);
         rect.setTextureRect(sf::IntRect(button_texture->t_tile_position, button_texture->t_tile_size));
+    }
+
+    if (!button_texture.has_value() && button_color.has_value())
+    {
+        rect.setFillColor(button_color.value());
     }
 }
 
@@ -52,4 +57,15 @@ void Button::setTexture(std::optional<Texture> new_texture, std::optional<sf::Ve
         btnTexture->t_tile_position = new_position.value();
         rect.setTextureRect(sf::IntRect(btnTexture->t_tile_position, btnTexture->t_tile_size));
     }
+}
+
+void Button::setPosition(sf::Vector2f position)
+{
+    b_position = position;
+
+    rect.setPosition(b_position);
+
+    if (!btnText.has_value()){return;}
+
+    btnText->t_txt.get()->setPosition({b_position.x + (b_size.x/2), b_position.y + (b_size.y / 2)});
 }

@@ -8,9 +8,11 @@
 #include <SFML/Graphics.hpp>
 #include "map.h"
 #include "tsm.h"
-#include "menu.h"
 #include "history.h"
+
 #include "ui/button.h"
+#include "menu/menu.h"
+#include "menu/mapconfig.h"
 
 /*
     TODO LIST
@@ -73,13 +75,15 @@ int main()
 
     map.load(level, width, height, tileSize);
 
-    // UI Elements
+    // Fonts
     sf::Font font;
     if (!font.openFromFile("assets/font.ttf"))
     {
         std::cerr << "Failed to load font!\n";
         return -1;
     }
+
+    // UI Elements
 
     sf::Texture pointerSet;
     if(!pointerSet.loadFromFile("assets/pointers.png"))
@@ -147,7 +151,10 @@ int main()
 
     HistoryManager history(&map, &overlayMode);
 
-    Menu menu(&buttonSet, history);
+    // Variables for the menu
+    MapConfig mapConfig(font);
+
+    Menu menu(&buttonSet, history, mapConfig);
 
     // FPS Variables
     sf::Clock clock;    
@@ -209,7 +216,7 @@ int main()
             {
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
 
-                if (mousePos.y > 75) {
+                if (mousePos.y > 75 && !mapConfig.isActive()) {
                     if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) // user wanna move the camera
                     {
                         rightDown = true;
@@ -227,11 +234,14 @@ int main()
                             placeTile(overlayMode, map, textureSelectionManager, history, window.mapPixelToCoords(sf::Mouse::getPosition(window)), width, height, tileSize);
                         }
                     }
-                }else { 
+                }else if (mousePos.y < 75){ 
                     if(sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) { menu.handleClick(mousePos); }
                 }
 
-                
+                if (mapConfig.isActive())
+                {
+                    mapConfig.handleClick(mousePos);
+                }
             }
 
             if (event->is<sf::Event::MouseButtonReleased>())
@@ -265,9 +275,19 @@ int main()
                 }
             }
         
+            if(const auto* textEntered = event->getIf<sf::Event::TextEntered>())
+            {
+
+                if (mapConfig.isActive() && textEntered->unicode < 128)
+                {
+                    mapConfig.handleChar(textEntered->unicode);
+                }
+            }
+
             // Block Selection & Build Mode Toggling
             if (event->is<sf::Event::KeyPressed>())
             {
+                
             
                 if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::G)) // Change Texture Groups
                 {
@@ -351,6 +371,7 @@ int main()
         window.draw(textureSelectionManager);
         if (overlayMode){ window.draw(overlayModeText);}
         if (deleteMode){ window.draw(deleteModeText);}
+        if (mapConfig.isActive()){mapConfig.draw(window);}
         
         window.setView(camera);
 
