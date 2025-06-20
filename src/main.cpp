@@ -6,11 +6,14 @@
 #include <functional>
 
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+
 #include "map.h"
 #include "tsm.h"
 #include "history.h"
 
 #include "ui/button.h"
+#include "ui/prompt.h"
 #include "menu/menu.h"
 #include "menu/mapconfig.h"
 
@@ -84,7 +87,6 @@ int main()
     }
 
     // UI Elements
-
     sf::Texture pointerSet;
     if(!pointerSet.loadFromFile("assets/pointers.png"))
     {
@@ -123,6 +125,9 @@ int main()
     deleteModeText.setFillColor(sf::Color::Red);
     deleteModeText.setStyle(sf::Text::Bold || sf::Text::Underlined);
 
+    sf::SoundBuffer buffer ("assets/noti.mp3");
+    Prompt prompt(Prompt::Type::Normal, "Test", buffer, font);
+
     // Texture Selection Manager Setup
     TextureSelectionManager textureSelectionManager(tileset);
     textureSelectionManager.registerTextureGroup(TextureSelectionManager::TextureGroup("Grass", {0,1,2}), false);
@@ -152,7 +157,7 @@ int main()
     HistoryManager history(&map, &overlayMode);
 
     // Variables for the menu
-    MapConfig mapConfig(font);
+    MapConfig mapConfig(font, map);
 
     Menu menu(&buttonSet, history, mapConfig);
 
@@ -372,6 +377,8 @@ int main()
         if (overlayMode){ window.draw(overlayModeText);}
         if (deleteMode){ window.draw(deleteModeText);}
         if (mapConfig.isActive()){mapConfig.draw(window);}
+
+        prompt.draw(window);
         
         window.setView(camera);
 

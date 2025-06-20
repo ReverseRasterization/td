@@ -24,6 +24,7 @@ add_executable(main
                     
                     src/ui/button.cpp
                     src/ui/textbox.cpp
+                    src/ui/prompt.cpp
 
                     src/menu/menu.cpp 
                     src/menu/mapconfig.cpp
@@ -36,4 +37,4 @@ add_custom_command(TARGET main POST_BUILD
 
 
 target_compile_features(main PRIVATE cxx_std_17)
-target_link_libraries(main PRIVATE SFML::Graphics)
+target_link_libraries(main PRIVATE SFML::Graphics SFML::Audio)

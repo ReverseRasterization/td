@@ -21,6 +21,9 @@ class Map : public sf::Drawable, public sf::Transformable
         int getTileFromPosition(sf::Vector2f position);
         int getTileTexture(int tileID, bool overlay){return overlay ? m_tiles[tileID].overlayTexID : m_tiles[tileID].groundTexID;}
 
+        unsigned int getWidth(){return m_width;}
+        unsigned int getHeight(){return m_height;}
+
         Map(sf::Texture& tileset):m_tileset(tileset){};
 
     private:

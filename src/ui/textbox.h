@@ -6,6 +6,13 @@ class Textbox
 {
     public:
 
+        enum Rule
+        {
+            NUMBERS_ONLY,
+            LETTERS_ONLY,
+            ANY
+        };
+
         Textbox(sf::Font& font, sf::Vector2f size, unsigned int char_size)
         :   background(size),
             text(font, "", char_size),
@@ -19,9 +26,13 @@ class Textbox
         sf::Vector2f getPosition(){return background.getPosition();}
 
         void setMaxCharacters(unsigned int max_characters) {maxChar = max_characters;}
+        void setRule(Rule rule) {m_rule = rule;};
 
         void handleClick(sf::Vector2f pos);
         void handleChar(char32_t character);
+
+        void setString(std::string new_string);
+        std::string getString(){return currString;};
 
         void draw(sf::RenderWindow& window)
         {
@@ -30,6 +41,8 @@ class Textbox
         }
 
     private:
+
+        Rule m_rule {ANY};
 
         sf::RectangleShape background;
         sf::Text text;

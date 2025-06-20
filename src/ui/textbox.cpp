@@ -36,8 +36,30 @@ void Textbox::handleChar(char32_t character)
             currString.pop_back();
         }
     }else {
-        currString += character;
+        if (m_rule == ANY)
+        {
+            currString += character;
+        }else if (m_rule == NUMBERS_ONLY)
+        {
+            if (character >= 48 && character <= 57)
+            {
+                currString += character;
+            }
+        }else // letters only
+        {
+            if ((character >= 65 && character <= 90) || (character >= 97 && character <= 122))
+            {
+                currString += character;
+            }
+        }
+        
     }
 
+    text.setString(currString);
+}
+
+void Textbox::setString(std::string new_string)
+{
+    currString = new_string;
     text.setString(currString);
 }

@@ -1,7 +1,11 @@
 #include "mapconfig.h"
 #include <iostream>
+#include <string>
+#include <stdexcept>
 
-MapConfig::MapConfig(sf::Font& font):
+MapConfig::MapConfig(sf::Font& font, Map& map):
+    map(map),
+
     frame(sf::Vector2f(500.f, 200.f)),
     title(font, "Map Configuration", 20),
     sizeTitle(font, "Width x Height", 15),
@@ -30,11 +34,17 @@ MapConfig::MapConfig(sf::Font& font):
 
     widthTB.setPosition(frame.getPosition() + sf::Vector2f(frame.getSize().x/2, frame.getSize().y/2) - sf::Vector2f(55.f, 12.5f));
     widthTB.setMaxCharacters(3);
+    widthTB.setRule(Textbox::Rule::NUMBERS_ONLY);
 
     heightTB.setPosition(frame.getPosition() + sf::Vector2f(frame.getSize().x/2, frame.getSize().y/2) - sf::Vector2f(-5.f, 12.5f));
     heightTB.setMaxCharacters(3);
+    heightTB.setRule(Textbox::Rule::NUMBERS_ONLY);
 
     applyButtion.setPosition(frame.getPosition() + sf::Vector2f(frame.getSize().x/2, frame.getSize().y/2) + sf::Vector2f(-50.f, 25.f));
+    applyButtion.onClick = [this](Button&)
+    {
+        changeMapProperties();
+    };
 }
 
 void MapConfig::handleClick(sf::Vector2i position)
@@ -49,4 +59,27 @@ void MapConfig::handleChar(char32_t character)
 {
     widthTB.handleChar(character);
     heightTB.handleChar(character);
+}
+
+void MapConfig::open()
+{
+    active = true;
+    widthTB.setString(std::to_string(map.getWidth()));
+    heightTB.setString(std::to_string(map.getHeight()));
+}
+
+void MapConfig::changeMapProperties()
+{
+    unsigned int width{0};
+    unsigned int height{0};
+
+    try {
+        width = std::stoi(widthTB.getString());
+        height = std::stoi(heightTB.getString());
+    }catch(...) {
+        std::cout << "Invalid input!\n";
+        return;
+    };
+
+    std::cout << "New Size: " << width << " x " << height << '\n';
 }
