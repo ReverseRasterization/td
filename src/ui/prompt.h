@@ -32,7 +32,15 @@ class Prompt
         void draw(sf::RenderWindow& window)
         {
             window.draw(frame);
+            button1.draw(window);
+
+            if (m_type == Warning)
+            {
+                button2.draw(window);
+            }
         }
+
+        void handleClick(sf::Vector2i pos);
 
     private:
 
@@ -41,6 +49,13 @@ class Prompt
         sf::RectangleShape frame;
         sf::Text promptText;
 
+        Type m_type;
+
+        Button button1;
+        Button button2;
+
         bool visible {false};
+
+        void onResponse(Button& button);
 
 };

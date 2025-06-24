@@ -35,9 +35,8 @@ class Button
             Texture(sf::Texture* texture, sf::Vector2i tile_position, sf::Vector2i tile_size): t_texture(texture), t_tile_position(tile_position), t_tile_size(tile_size) {}
         };
 
-        std::function<void(Button& button)> onClick;
-        void handleClick(sf::Vector2i pos);
-
+        bool clicked(sf::Vector2i mouse_pos);
+        
         void setText(std::string new_text);
         void setTexture(std::optional<Texture> new_texture=std::nullopt, std::optional<sf::Vector2i> new_position=std::nullopt);
 
@@ -45,6 +44,9 @@ class Button
         void setState(int new_state){state=new_state;}
 
         void setPosition(sf::Vector2f position);
+
+        sf::Vector2f getSize() { return b_size;}
+        //sf::Vector2f getPosition() {return b_position;}
 
         void draw(sf::RenderWindow& window)
         {

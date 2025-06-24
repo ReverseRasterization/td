@@ -26,11 +26,9 @@ Button::Button(sf::Vector2f position, sf::Vector2f size, std::optional<Button::T
     }
 }
 
-void Button::handleClick(sf::Vector2i pos)
+bool Button::clicked(sf::Vector2i mouse_pos)
 {
-    if (pos.x < b_position.x || pos.x > b_position.x + b_size.x || pos.y < b_position.y || pos.y > b_position.y + b_size.y) {return;}
-
-    if(onClick){onClick(*this);}
+    return rect.getGlobalBounds().contains(static_cast<sf::Vector2f>(mouse_pos));
 }
 
 void Button::setText(std::string new_text)
